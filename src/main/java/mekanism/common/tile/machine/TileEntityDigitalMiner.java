@@ -155,6 +155,8 @@ public class TileEntityDigitalMiner extends TileEntityMekanism implements ISusta
 
     private MinerEnergyContainer energyContainer;
     private List<IInventorySlot> mainSlots;
+    // Cache for canInsert simulation to avoid frequent object allocation
+    private Int2ObjectMap<ItemCount> cachedStacksForInsertion;
     @WrappingComputerMethod(wrapper = ComputerIInventorySlotWrapper.class, methodNames = "getEnergyItem", docPlaceholder = "energy slot")
     EnergyInventorySlot energySlot;
 
@@ -620,16 +622,21 @@ public class TileEntityDigitalMiner extends TileEntityMekanism implements ISusta
             return true;
         }
         int slots = mainSlots.size();
-        Int2ObjectMap<ItemCount> cachedStacks = new Int2ObjectOpenHashMap<>(slots);
+        // Reuse cached map to avoid frequent object allocation
+        if (cachedStacksForInsertion == null || cachedStacksForInsertion.size() < slots) {
+            cachedStacksForInsertion = new Int2ObjectOpenHashMap<>(slots);
+        } else {
+            cachedStacksForInsertion.clear();
+        }
         for (int i = 0; i < slots; i++) {
             IInventorySlot slot = mainSlots.get(i);
             if (!slot.isEmpty()) {
                 //Note: We skip caching the current stack of any empty slots
-                cachedStacks.put(i, new ItemCount(slot.getStack(), slot.getCount()));
+                cachedStacksForInsertion.put(i, new ItemCount(slot.getStack(), slot.getCount()));
             }
         }
         for (ItemStack stackToInsert : toInsert) {
-            ItemStack stack = simulateInsert(cachedStacks, slots, stackToInsert);
+            ItemStack stack = simulateInsert(cachedStacksForInsertion, slots, stackToInsert);
             if (!stack.isEmpty()) {
                 //If our stack is not empty that means we could not fit it all inside of our inventory,
                 // so we return false to being able to insert all the items.

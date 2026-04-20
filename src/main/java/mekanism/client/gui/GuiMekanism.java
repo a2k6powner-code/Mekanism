@@ -636,7 +636,12 @@ public abstract class GuiMekanism<CONTAINER extends AbstractContainerMenu> exten
     @Nullable
     @Override
     public GuiWindow getWindowHovering(double mouseX, double mouseY) {
-        return windows.stream().filter(w -> w.isMouseOver(mouseX, mouseY)).findFirst().orElse(null);
+        for (GuiWindow w : windows) {
+            if (w.isMouseOver(mouseX, mouseY)) {
+                return w;
+            }
+        }
+        return null;
     }
 
     public Collection<GuiWindow> getWindows() {
