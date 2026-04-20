@@ -111,17 +111,20 @@ public class ResizableOreFeature extends Feature<ResizableOreFeatureConfig> {
                     int xEnd = Math.max(Mth.floor(d2 + d1), xStart);
                     int yEnd = Math.max(Mth.floor(d3 + d1), yStart);
                     int zEnd = Math.max(Mth.floor(d4 + d1), zStart);
+                    // Pre-calculate inverse to avoid repeated division in loops
+                    double inv_d1 = 1.0 / d1;
                     for (int x = xStart; x <= xEnd; ++x) {
-                        double d5 = ((double) x + 0.5D - d2) / d1;
+                        double d5 = ((double) x + 0.5D - d2) * inv_d1;
                         double d5_squared = d5 * d5;
                         if (d5_squared < 1) {
                             for (int y = yStart; y <= yEnd; ++y) {
-                                double d6 = ((double) y + 0.5D - d3) / d1;
+                                double d6 = ((double) y + 0.5D - d3) * inv_d1;
                                 double d6_squared = d6 * d6;
-                                if (d5_squared + d6_squared < 1) {
+                                double d5_d6_squared_sum = d5_squared + d6_squared;
+                                if (d5_d6_squared_sum < 1) {
                                     for (int z = zStart; z <= zEnd; ++z) {
-                                        double d7 = ((double) z + 0.5D - d4) / d1;
-                                        if (d5_squared + d6_squared + d7 * d7 < 1.0D && !world.isOutsideBuildHeight(y)) {
+                                        double d7 = ((double) z + 0.5D - d4) * inv_d1;
+                                        if (d5_d6_squared_sum + d7 * d7 < 1.0D && !world.isOutsideBuildHeight(y)) {
                                             int l2 = x - minXStart + (y - minYStart) * width + (z - minZStart) * width * height;
                                             if (!bitset.get(l2)) {
                                                 bitset.set(l2);
