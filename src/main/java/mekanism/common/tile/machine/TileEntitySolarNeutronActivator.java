@@ -1,6 +1,10 @@
 package mekanism.common.tile.machine;
 
 import java.util.List;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import mekanism.api.IContentsListener;
 import mekanism.api.RelativeSide;
 import mekanism.api.chemical.ChemicalTankBuilder;
@@ -47,15 +51,13 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.Biome.Precipitation;
 import net.minecraft.world.level.block.state.BlockState;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<GasToGasRecipe> implements IBoundingBlock, ChemicalRecipeLookupHandler<Gas, GasStack, GasToGasRecipe> {
 
     private static final List<RecipeError> TRACKED_ERROR_TYPES = List.of(
-          RecipeError.NOT_ENOUGH_INPUT,
-          RecipeError.NOT_ENOUGH_OUTPUT_SPACE,
-          RecipeError.INPUT_DOESNT_PRODUCE_OUTPUT
+            RecipeError.NOT_ENOUGH_INPUT,
+            RecipeError.NOT_ENOUGH_OUTPUT_SPACE,
+            RecipeError.INPUT_DOESNT_PRODUCE_OUTPUT
     );
     public static final long MAX_GAS = 10_000;
 
@@ -88,7 +90,7 @@ public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<Gas
 
         ejectorComponent = new TileComponentEjector(this);
         ejectorComponent.setOutputData(configComponent, TransmissionType.ITEM, TransmissionType.GAS)
-              .setCanTankEject(tank -> tank != inputTank);
+                .setCanTankEject(tank -> tank != inputTank);
         inputHandler = InputHelper.getInputHandler(inputTank, RecipeError.NOT_ENOUGH_INPUT);
         outputHandler = OutputHelper.getOutputHandler(outputTank, RecipeError.NOT_ENOUGH_OUTPUT_SPACE);
     }
@@ -99,7 +101,7 @@ public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<Gas
         ChemicalTankHelper<Gas, GasStack, IGasTank> builder = ChemicalTankHelper.forSideGasWithConfig(this::getDirection, this::getConfig);
         //Allow extracting out of the input gas tank if it isn't external OR the output tank is empty AND the input is radioactive
         builder.addTank(inputTank = ChemicalTankBuilder.GAS.create(MAX_GAS, ChemicalTankHelper.radioactiveInputTankPredicate(() -> outputTank),
-              ChemicalTankBuilder.GAS.alwaysTrueBi, this::containsRecipe, ChemicalAttributeValidator.ALWAYS_ALLOW, recipeCacheListener));
+                ChemicalTankBuilder.GAS.alwaysTrueBi, this::containsRecipe, ChemicalAttributeValidator.ALWAYS_ALLOW, recipeCacheListener));
         builder.addTank(outputTank = ChemicalTankBuilder.GAS.output(MAX_GAS, listener));
         return builder.build();
     }
@@ -169,9 +171,10 @@ public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<Gas
     }
 
     private boolean canFunction() {
-        // Sort out if the solar neutron activator can see the sun; we no longer check if it's raining here,
-        // since under the new rules, we can still function when it's raining, albeit at a significant penalty.
-        return MekanismUtils.canFunction(this) && canSeeSun();
+        // 修改：移除 canSeeSun() 检查，使太阳能中子活化器可以全天候工作
+        // 原逻辑：MekanismUtils.canFunction(this) && canSeeSun()
+        // 新逻辑：仅检查红石控制状态，不再受昼夜循环和光照限制
+        return MekanismUtils.canFunction(this);
     }
 
     private float recalculateProductionRate() {
@@ -179,11 +182,11 @@ public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<Gas
         if (world == null || !canFunction()) {
             return 0;
         }
-        //Get the brightness of the sun; note that there are some implementations that depend on the base
-        // brightness function which doesn't take into account the fact that rain can't occur in some biomes.
-        float brightness = WorldUtils.getSunBrightness(world, 1.0F);
-        //Production is a function of the peak possible output in this biome and sun's current brightness
-        float production = peakProductionRate * brightness;
+        // 修改：移除阳光亮度检查，使生产效率不再受昼夜影响
+        // 原逻辑：float brightness = WorldUtils.getSunBrightness(world, 1.0F);
+        //         float production = peakProductionRate * brightness;
+        // 新逻辑：直接使用峰值生产率，全天候保持恒定输出
+        float production = peakProductionRate;
         //If the solar neutron activator is in a biome where it can rain, and it's raining penalize production by 80%
         if (needsRainCheck && (world.isRaining() || world.isThundering())) {
             production *= 0.2F;
@@ -195,13 +198,13 @@ public class TileEntitySolarNeutronActivator extends TileEntityRecipeMachine<Gas
     @Override
     public CachedRecipe<GasToGasRecipe> createNewCachedRecipe(@NotNull GasToGasRecipe recipe, int cacheIndex) {
         return OneInputCachedRecipe.chemicalToChemical(recipe, recheckAllRecipeErrors, inputHandler, outputHandler)
-              .setErrorsChanged(this::onErrorsChanged)
-              .setCanHolderFunction(this::canFunction)
-              .setActive(this::setActive)
-              .setOnFinish(this::markForSave)
-              //Edge case handling, this should almost always end up being 1
-              .setRequiredTicks(() -> productionRate > 0 && productionRate < 1 ? (int) Math.ceil(1 / productionRate) : 1)
-              .setBaselineMaxOperations(() -> productionRate > 0 && productionRate < 1 ? 1 : (int) productionRate);
+                .setErrorsChanged(this::onErrorsChanged)
+                .setCanHolderFunction(this::canFunction)
+                .setActive(this::setActive)
+                .setOnFinish(this::markForSave)
+                //Edge case handling, this should almost always end up being 1
+                .setRequiredTicks(() -> productionRate > 0 && productionRate < 1 ? (int) Math.ceil(1 / productionRate) : 1)
+                .setBaselineMaxOperations(() -> productionRate > 0 && productionRate < 1 ? 1 : (int) productionRate);
     }
 
     @Override

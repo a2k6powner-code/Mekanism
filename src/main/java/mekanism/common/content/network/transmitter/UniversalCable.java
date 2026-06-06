@@ -5,6 +5,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import mekanism.api.Action;
 import mekanism.api.AutomationType;
 import mekanism.api.NBTConstants;
@@ -28,11 +32,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class UniversalCable extends BufferedTransmitter<IStrictEnergyHandler, EnergyNetwork, FloatingLong, UniversalCable> implements IMekanismStrictEnergyHandler,
-      IUpgradeableTransmitter<UniversalCableUpgradeData> {
+        IUpgradeableTransmitter<UniversalCableUpgradeData> {
 
     public final CableTier tier;
 
@@ -136,7 +138,12 @@ public class UniversalCable extends BufferedTransmitter<IStrictEnergyHandler, En
     public CompoundTag write(@NotNull CompoundTag nbtTags) {
         super.write(nbtTags);
         if (hasTransmitterNetwork()) {
-            getTransmitterNetwork().validateSaveShares(this);
+            // 强制更新份额，确保 lastWrite 反映当前网络状态
+            // 不再依赖 validateSaveShares 的 Tick 节流机制，解决 Mohist 环境下区块保存时序问题
+            getTransmitterNetwork().forceUpdateSaveShares(this);
+        } else {
+            // 如果没有网络，lastWrite 应该等于 buffer 中的能量
+            lastWrite = buffer.getEnergy();
         }
         if (lastWrite.isZero()) {
             nbtTags.remove(NBTConstants.ENERGY_STORED);
@@ -199,6 +206,9 @@ public class UniversalCable extends BufferedTransmitter<IStrictEnergyHandler, En
                 transmitterNetwork.energyContainer.setEnergy(transmitterNetwork.energyContainer.getEnergy().subtract(lastWrite));
                 buffer.setEnergy(lastWrite);
             }
+        } else {
+            // 如果没有网络，确保 lastWrite 与 buffer 一致，以便下次保存
+            lastWrite = buffer.getEnergy();
         }
     }
 

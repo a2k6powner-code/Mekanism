@@ -1,22 +1,23 @@
 package mekanism.common.lib.transmitter;
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.LongConsumer;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import mekanism.common.content.network.transmitter.BufferedTransmitter;
 import mekanism.common.lib.math.Range3D;
 import mekanism.common.util.WorldUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraftforge.eventbus.api.Event;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public abstract class DynamicBufferedNetwork<ACCEPTOR, NETWORK extends DynamicBufferedNetwork<ACCEPTOR, NETWORK, BUFFER, TRANSMITTER>, BUFFER,
-      TRANSMITTER extends BufferedTransmitter<ACCEPTOR, NETWORK, BUFFER, TRANSMITTER>> extends DynamicNetwork<ACCEPTOR, NETWORK, TRANSMITTER> {
+public abstract class DynamicBufferedNetwork<ACCEPTOR, NETWORK extends DynamicBufferedNetwork<ACCEPTOR, NETWORK, BUFFER, TRANSMITTER>, BUFFER, TRANSMITTER extends BufferedTransmitter<ACCEPTOR, NETWORK, BUFFER, TRANSMITTER>> extends DynamicNetwork<ACCEPTOR, NETWORK, TRANSMITTER> {
 
     protected final LongSet chunks = new LongOpenHashSet();
     @Nullable
@@ -164,6 +165,21 @@ public abstract class DynamicBufferedNetwork<ACCEPTOR, NETWORK extends DynamicBu
         if (world != null && world.getGameTime() != lastSaveShareWriteTime) {
             lastSaveShareWriteTime = world.getGameTime();
             updateSaveShares(triggerTransmitter);
+        }
+    }
+
+    /**
+     * 强制更新所有传输器的保存份额，不受 Tick 节流限制。 用于在 NBT 保存前确保数据一致性，解决 Mohist 环境下区块保存时序问题。
+     */
+    public final void forceUpdateSaveShares(@NotNull TRANSMITTER triggerTransmitter) {
+        if (world == null) {
+            world = triggerTransmitter.getTileWorld();
+        }
+        // 跳过 Tick 检查，直接更新份额
+        updateSaveShares(triggerTransmitter);
+        // 更新 lastSaveShareWriteTime 以防止后续重复更新
+        if (world != null) {
+            lastSaveShareWriteTime = world.getGameTime();
         }
     }
 
